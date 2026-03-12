@@ -82,13 +82,30 @@ pip3 install --break-system-packages faster-whisper
 
 ## 使用方法
 
-### 输入
+### 支持的输入
 
-用户提供视频链接，例如：
+#### 1. URL视频链接（在线视频）
 - B站: `https://www.bilibili.com/video/BV1xuPYzcEdo`
 - 抖音: `https://www.douyin.com/video/xxx`
 - TikTok: `https://www.tiktok.com/@xxx/video/xxx`
 - YouTube: `https://www.youtube.com/watch?v=xxx`
+
+#### 2. 本地视频文件
+- MP4文件: `/path/to/video.mp4`
+- 其他格式: `/path/to/video.mov`, `/path/to/video.mkv`
+
+### 输入示例
+
+```bash
+# 分析在线视频
+python3 scripts/analyze_local.py https://www.bilibili.com/video/BVxxx
+
+# 分析本地视频
+python3 scripts/analyze_local.py /Users/xxx/Desktop/video.mp4
+
+# 分析本地视频（指定输出目录）
+python3 scripts/analyze_local.py /path/to/video.mp4 -o ./output
+```
 
 ### 输出
 
