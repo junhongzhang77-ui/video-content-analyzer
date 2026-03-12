@@ -87,6 +87,7 @@ pip3 install --break-system-packages faster-whisper
 用户提供视频链接，例如：
 - B站: `https://www.bilibili.com/video/BV1xuPYzcEdo`
 - 抖音: `https://www.douyin.com/video/xxx`
+- TikTok: `https://www.tiktok.com/@xxx/video/xxx`
 - YouTube: `https://www.youtube.com/watch?v=xxx`
 
 ### 输出
@@ -126,6 +127,7 @@ pip3 install --break-system-packages faster-whisper
 
 - B站: `https://www.bilibili.com/video/BV1xuPYzcEdo` 或 `BV1xuPYzcEdo`
 - 抖音: `https://www.douyin.com/video/xxx`
+- TikTok: `https://www.tiktok.com/@xxx/video/xxx`
 - YouTube: `https://www.youtube.com/watch?v=xxx`
 
 ---
