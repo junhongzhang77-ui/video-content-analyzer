@@ -41,21 +41,23 @@ related_skills:
 dependencies:
   - yt-dlp (视频下载)
   - ffmpeg (音频提取)
-  - coqui-stt (免费语音转文字)
+  - faster-whisper (免费语音转文字)
 ---
 
 # 视频内容分析器（免费版）
 
-> ⚠️ **注意**：这是 video-content-analyzer 的免费版本，使用 Coqui 替代付费的 Whisper API。
+> ⚠️ **注意**：这是 video-content-analyzer 的免费版本，使用 faster-whisper 替代付费的 Whisper API。
 
 自动下载视频并用 AI 分析内容，支持 B站/抖音/YouTube 等平台，提取语音文案，输出综合分析报告。
 
 ## 功能
 
 1. **视频下载** - 支持B站、抖音、YouTube等主流平台
-2. **音频提取** - 用 ffmpeg 提取视频中的音频
-3. **语音转写** - 用 Coqui STT 免费转写为文字
+2. **自动获取数据** - 自动提取视频标题、播放量、互动数据
+3. **语音转写** - 用 faster-whisper 免费转写为文字
 4. **内容分析** - AI分析视频结构、节奏、钩子
+5. **批量分析** - 支持多个视频链接批量分析
+6. **报告导出** - 自动保存分析报告到本地
 
 ## 前置要求
 
@@ -68,25 +70,13 @@ brew install ffmpeg
 # 安装 yt-dlp (视频下载)
 pip3 install --break-system-packages yt-dlp
 
-# 安装 Coqui STT (免费语音转写)
-pip3 install coqui-stt
-
-# 下载 Coqui 模型 (首次使用)
-coqui-stt --model_dir ~/.coqui
+# 安装 faster-whisper (免费语音转写)
+pip3 install --break-system-packages faster-whisper
 ```
 
-### Coqui 模型下载
+### faster-whisper 首次使用
 
-首次使用需要下载模型：
-
-```bash
-# 创建模型目录
-mkdir -p ~/.coqui
-
-# 下载预训练模型 (英文+中文支持)
-# 模型地址: https://github.com/coqui-ai/STT-models
-# 推荐使用: vosk-model-cn for Chinese
-```
+首次使用会自动下载模型（small中文模型，约500MB）
 
 ---
 
@@ -102,13 +92,15 @@ mkdir -p ~/.coqui
 ### 输出
 
 完整的综合分析报告，包括：
-1. 📝 完整文案（语音转写）
-2. 🎬 视频结构分析（章节/时间节点）
-3. 🪝 钩子分析
-4. ⏱️ 节奏分析
-5. 💡 内容总结
+1. 📊 视频数据（标题、播放、点赞、投币、收藏）
+2. 📝 完整文案（语音转写）
+3. 🎬 视频结构分析（章节/时间节点）
+4. 🪝 钩子分析
+5. ⏱️ 节奏分析
+6. 💡 爆款原因拆解
+7. 🎯 可复制策略
 
-**报告会自动保存到 `~/.openclaw/workspace/video-analysis/` 目录下**，文件名为 `{视频标题}_{日期}.md`
+**报告会自动保存到 `~/.openclaw/workspace/video-analysis/` 目录下**
 
 ---
 
@@ -117,48 +109,75 @@ mkdir -p ~/.coqui
 ```
 1. 输入视频链接
         ↓
-2. yt-dlp 下载视频
+2. 自动提取 BV号/视频ID
         ↓
-3. ffmpeg 提取音频
+3. 获取视频基本信息（标题、播放、互动数据）
         ↓
-4. Coqui STT 转写语音
+4. yt-dlp 下载视频
         ↓
-5. AI 分析 (文案)
+5. faster-whisper 转写语音
         ↓
-6. 输出综合报告
+6. AI 分析 (文案+数据)
+        ↓
+7. 输出综合报告 + 保存到文件
 ```
+
+### 支持的输入格式
+
+- B站: `https://www.bilibili.com/video/BV1xuPYzcEdo` 或 `BV1xuPYzcEdo`
+- 抖音: `https://www.douyin.com/video/xxx`
+- YouTube: `https://www.youtube.com/watch?v=xxx`
 
 ---
 
 ## 命令行示例
 
-### 1. 下载视频 + 提取音频
+### 1. Python 转写脚本
 
-```bash
-# 下载B站视频（仅音频）
-yt-dlp -x --audio-format mp3 -o "%(title)s.%(ext)s" "https://www.bilibili.com/video/BV1xuPYzcEdo"
+```python
+import re
+from faster_whisper import WhisperModel
 
-# 下载视频（最佳画质）
-yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "%(title)s.%(ext)s" "https://www.bilibili.com/video/BV1xuPYzcEdo"
+def extract_bvid(url):
+    """从B站链接提取BV号"""
+    match = re.search(r'BV[\w]+', url)
+    return match.group(0) if match else url
 
-# 提取音频
-ffmpeg -i input.mp4 -vn -acodec libmp3lame -q:a 2 output.mp3
+def transcribe_video(video_path, language='zh'):
+    """转写视频"""
+    model = WhisperModel('small', device='cpu', compute_type='int8')
+    segments, info = model.transcribe(video_path, language=language)
+    return ' '.join([seg.text for seg in segments])
+
+# 使用
+bvid = extract_bvid('https://www.bilibili.com/video/BV1xuPYzcEdo')
+text = transcribe_video('/tmp/video.mp4')
+print(text)
 ```
 
-### 2. Coqui 转写
+### 2. 获取B站视频数据
 
-```bash
-# 使用 Coqui 转写音频
-coqui-stt --model models/coqui-model-cn --scorer models/coqui-scorer-cn audio.mp3 > output.txt
+```python
+import requests
 
-# 或使用 Python API
-python3 -c "
-from coqui_stt import Model
+def get_bilibili_info(bvid):
+    """获取B站视频信息"""
+    url = f'https://api.bilibili.com/x/web-interface/view?bvid={bvid}'
+    data = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}).json()['data']
+    stat = data['stat']
+    return {
+        'title': data['title'],
+        'author': data['owner']['name'],
+        'duration': data['duration'],
+        'view': stat['view'],
+        'like': stat['like'],
+        'coin': stat['coin'],
+        'favorite': stat['favorite']
+    }
 
-model = Model('models/coqui-model-cn')
-transcript = model.stt('audio.mp3')
-print(transcript)
-"
+# 使用
+info = get_bilibili_info('1xuPYzcEdo')
+print(info)
 ```
 
 ---
@@ -214,7 +233,7 @@ echo "下一步: 使用免费 AI (Kimi/智谱) 分析文案"
 
 ## 📝 完整文案
 
-[Coqui转写的完整语音文案]
+[faster-whisper转写的完整语音文案]
 
 ---
 
@@ -256,8 +275,8 @@ echo "下一步: 使用免费 AI (Kimi/智谱) 分析文案"
 ## 注意事项
 
 1. 📡 **网络** - 下载视频需要稳定的网络，B站建议使用 Cookie 认证
-2. 💰 **费用** - 完全免费（Coqui + 免费AI）
-3. ⏱️ **时间** - 完整分析需要 5-10 分钟（取决于视频长度）
+2. 💰 **费用** - 完全免费（faster-whisper + 免费AI）
+3. ⏱️ **时间** - 完整分析需要 3-5 分钟（取决于视频长度）
 4. 📏 **长度** - 建议视频时长 < 30 分钟
 5. 🔐 **版权** - 仅供学习分析使用，勿用于商业目的
 
@@ -270,10 +289,10 @@ echo "下一步: 使用免费 AI (Kimi/智谱) 分析文案"
 - 尝试使用代理
 - B站可能需要 Cookie 认证
 
-### Coqui 转写效果差
-- 确认模型支持中文（使用 coqui-model-cn）
+### faster-whisper 转写效果差
+- 首次使用会自动下载模型（需等待）
 - 检查音频质量
-- 尝试调整音频音量
+- 可尝试更换模型（base/small/medium/large）
 
 ### ffmpeg 问题
 - 确认 ffmpeg 已安装: `ffmpeg -version`
@@ -285,7 +304,14 @@ echo "下一步: 使用免费 AI (Kimi/智谱) 分析文案"
 
 将文案发给 Kimi/智谱清言：
 
-> 请分析以下短视频的文案，输出结构分析、钩子分析、节奏分析：
+> 请分析以下短视频的文案和数据，输出结构分析、钩子分析、爆款原因分析：
+> 
+> **视频数据**：
+> - 标题：[标题]
+> - 播放：[播放量]
+> - 点赞：[点赞数]
+> - 投币：[投币数]
+> - 收藏：[收藏数]
 > 
 > **语音文案**：
 > [粘贴文案]
@@ -293,5 +319,99 @@ echo "下一步: 使用免费 AI (Kimi/智谱) 分析文案"
 > 请按以下格式输出：
 > 1. 视频结构（时间线+内容）
 > 2. 钩子设计分析
-> 3. 节奏把控分析
-> 4. 总结与可复用点
+> 3. 爆款原因拆解（核心爆点+辅助因素）
+> 4. 可复制策略（普通人可抄程度）
+
+---
+
+## 故障排除
+
+### 模型下载慢/失败
+- 首次使用需下载模型（约500MB）
+- 可尝试更换国内源或代理
+- 模型可选：base(140MB)/small(500MB)/medium(1.5GB)/large(3GB)
+
+### 视频下载失败
+- 检查网络连接
+- 尝试使用代理
+- B站可能需要 Cookie 认证
+
+### faster-whisper 转写效果差
+- 首次使用会自动下载模型（需等待）
+- 检查音频质量
+- 可尝试更换模型（base/small/medium/large）
+
+### ffmpeg 问题
+- 确认 ffmpeg 已安装: `ffmpeg -version`
+- Mac用户: `brew install ffmpeg`
+
+---
+
+## 批量分析
+
+### 获取B站热门TOP视频
+
+```python
+import requests
+
+def get_bilibili_top(ps=20, pn=1):
+    """获取B站热门视频"""
+    url = f'https://api.bilibili.com/x/web-interface/popular?ps={ps}&pn={pn}'
+    data = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}).json()['data']['list']
+    return [{'bvid': v['bvid'], 'title': v['title'], 'duration': v['duration']} for v in data]
+
+# 获取TOP20
+tops = get_bilibili_top(20)
+for v in tops:
+    print(f"https://www.bilibili.com/video/{v['bvid']}")
+```
+
+### 批量分析示例
+
+```python
+# 批量分析TOP5视频
+video_links = [
+    "https://www.bilibili.com/video/BV1xxx",
+    "https://www.bilibili.com/video/BV2xxx",
+    "https://www.bilibili.com/video/BV3xxx",
+]
+
+for link in video_links:
+    # 1. 获取数据
+    # 2. 下载视频
+    # 3. 转写
+    # 4. 分析
+    # 5. 保存报告
+    pass
+```
+
+---
+
+## 一键安装脚本
+
+```bash
+#!/bin/bash
+# install.sh - 一键安装依赖
+
+echo "📦 安装视频分析工具..."
+
+# ffmpeg
+if ! command -v ffmpeg &> /dev/null; then
+    echo "安装 ffmpeg..."
+    brew install ffmpeg
+fi
+
+# yt-dlp
+echo "安装 yt-dlp..."
+pip3 install --break-system-packages yt-dlp
+
+# faster-whisper
+echo "安装 faster-whisper..."
+pip3 install --break-system-packages faster-whisper
+
+# 创建输出目录
+mkdir -p ~/.openclaw/workspace/video-analysis
+
+echo "✅ 安装完成！"
+echo "使用方式：发送视频链接给我即可分析"
+```
